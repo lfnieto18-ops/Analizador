@@ -1,0 +1,118 @@
+package analizador;
+
+import java_cup.runtime.*;
+import javax.swing.JTextArea; 
+
+/* Código de usuario (Para reportar a txtSintArea) */
+parser code {:
+    // Variable pública para que Principal.java pueda inyectar el JTextArea
+    public JTextArea salidaArea; 
+
+    public void setSalida(JTextArea area) {
+        this.salidaArea = area;
+    }
+
+    public void syntax_error(Symbol s) {
+        if (salidaArea != null) {
+            salidaArea.append("\n>>> ERROR SINTÁCTICO <<<\n");
+            salidaArea.append("Token inesperado: " + (s.value != null ? s.value : "Símbolo") + 
+                              " (Línea: " + (s.left + 1) + ", Columna: " + (s.right + 1) + ")\n");
+        } else {
+            System.err.println("Error sintáctico: Token inesperado " + s.value + " en línea " + (s.left + 1));
+        }
+    }
+    
+    public void unrecovered_syntax_error(Symbol s) {
+        report_error("Error sintáctico irrecuperable", s);
+    }
+:}
+
+/* Terminales (¡USANDO NOMBRES UNIFICADOS!) */
+terminal BESTIA, LUMUS, ACCIO, CRUCIO, CONFUNDO, IMPERIO, AVADA, KEDAVRA, WINGARDIUM, ACCIODIVISIO;
+terminal SECTUMSEMPRA, PROTEGO, EXPELIARMUS, OBLIVIATE, RICTUSEMPRA, EXPULSO, PORTUS;
+terminal HASTA, IN, PLUSPLUS, MINUSMINUS;
+terminal IGUAL, DIFERENTE, MAYOR, MENOR; 
+terminal LLAVEIZQ, LLAVEDER, PARENIZQ, PARENDER, COMA, PUNTOCOMA, DOSPUNTOS, HASH; 
+terminal ASIGN, MAS, MENOS, POR, DIV; 
+terminal ID, NUM, CADENA;
+terminal ERROR_LEXICO; 
+
+
+/* No terminales */
+non terminal programa, sentencia, sentencias;
+non terminal declaracion, asignacion, impresion, lectura, condicional, ciclo, bloque, expresion, parametros;
+non terminal comparador, opt_params; 
+
+/* ------------ PRECEDENCIA Y ASOCIATIVIDAD ------------ */
+
+precedence right ASIGN; 
+precedence nonassoc PROTEGO, IGUAL, DIFERENTE, MAYOR, MENOR; 
+precedence left MAS, MENOS, AVADA, KEDAVRA; 
+precedence left POR, DIV, WINGARDIUM, ACCIODIVISIO, SECTUMSEMPRA; 
+precedence right PLUSPLUS, MINUSMINUS; 
+
+/* Inicio */
+start with programa;
+
+/* Producciones (Usando PARENIZQ, PARENDER, PUNTOCOMA, etc.) */
+programa ::= sentencias 
+            {: 
+                if (parser.salidaArea != null && parser.salidaArea.getText().isEmpty()) { 
+                    parser.salidaArea.append("\nAnálisis realizado correctamente\n"); 
+                } 
+            :};
+
+sentencias ::= 
+             | sentencia sentencias ;
+
+sentencia ::= declaracion
+            | asignacion
+            | impresion
+            | lectura
+            | condicional
+            | ciclo
+            | EXPELIARMUS ID PUNTOCOMA HASH
+            | OBLIVIATE ID PUNTOCOMA HASH
+            | RICTUSEMPRA ID PLUSPLUS PUNTOCOMA HASH
+            | RICTUSEMPRA ID MINUSMINUS PUNTOCOMA HASH
+            | EXPULSO PUNTOCOMA HASH
+            | PORTUS ID PARENIZQ opt_params PARENDER PUNTOCOMA HASH
+            | PORTUS ID PUNTOCOMA HASH
+            ;
+
+declaracion ::= BESTIA ID PARENIZQ opt_params PARENDER PUNTOCOMA HASH ;
+opt_params ::= /* vacío */ | parametros ;
+parametros ::= expresion | expresion COMA parametros ;
+
+asignacion ::= ID ASIGN expresion PUNTOCOMA HASH ;
+
+impresion ::= LUMUS expresion PUNTOCOMA HASH 
+            | LUMUS expresion MAS expresion PUNTOCOMA HASH
+            ;
+
+lectura ::= ID ASIGN ACCIO expresion { COMA expresion } PUNTOCOMA HASH;
+
+
+condicional ::= CRUCIO expresion comparador expresion DOSPUNTOS bloque
+              | CRUCIO expresion comparador expresion CONFUNDO DOSPUNTOS bloque ; 
+
+bloque ::= LLAVEIZQ sentencias LLAVEDER ;
+
+ciclo ::= IMPERIO ID ASIGN expresion HASTA expresion DOSPUNTOS bloque
+        | IMPERIO ID IN expresion DOSPUNTOS bloque ;
+
+expresion ::= ID
+            | NUM
+            | CADENA
+            | PARENIZQ expresion PARENDER
+            | expresion MAS expresion
+            | expresion MENOS expresion
+            | expresion POR expresion
+            | expresion DIV expresion
+            | expresion AVADA expresion
+            | expresion KEDAVRA expresion
+            | expresion WINGARDIUM expresion
+            | expresion ACCIODIVISIO expresion
+            | expresion SECTUMSEMPRA expresion ;
+
+comparador ::= PROTEGO | IGUAL | DIFERENTE | MAYOR | MENOR ;
